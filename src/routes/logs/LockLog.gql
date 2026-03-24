@@ -1,17 +1,37 @@
-query AssociationDetail($id: ID!) {
-	node(id: $id) {
-		... on Association {
+mutation LockLog($id: ID!) {
+	lock(input: { id: $id }) {
+		__typename
+		... on GameLog {
 			id
-			name
-			description
-			markdownNotes
-			imageIds
+			title
+			brief
+			synopsis
+			gameDate
+			url
 			lockedBySelf
+			lockTime
 			lockUser {
 				id
 				username
 				firstName
 				lastName
+			}
+
+			artifacts {
+				edges {
+					node {
+						id
+						name
+					}
+				}
+			}
+			associations {
+				edges {
+					node {
+						id
+						name
+					}
+				}
 			}
 			characters {
 				edges {
@@ -21,7 +41,7 @@ query AssociationDetail($id: ID!) {
 					}
 				}
 			}
-			relatedArtifacts {
+			items {
 				edges {
 					node {
 						id
@@ -29,7 +49,7 @@ query AssociationDetail($id: ID!) {
 					}
 				}
 			}
-			relatedAssociations {
+			places {
 				edges {
 					node {
 						id
@@ -37,7 +57,7 @@ query AssociationDetail($id: ID!) {
 					}
 				}
 			}
-			relatedCharacters {
+			placesSetIn {
 				edges {
 					node {
 						id
@@ -45,36 +65,11 @@ query AssociationDetail($id: ID!) {
 					}
 				}
 			}
-			relatedItems {
+			races {
 				edges {
 					node {
 						id
 						name
-					}
-				}
-			}
-			relatedPlaces {
-				edges {
-					node {
-						id
-						name
-					}
-				}
-			}
-			relatedRaces {
-				edges {
-					node {
-						id
-						name
-					}
-				}
-			}
-			logs(order: { gameDate: DESC }) {
-				edges {
-					node {
-						id
-						title
-						url
 					}
 				}
 			}

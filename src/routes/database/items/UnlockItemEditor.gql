@@ -1,6 +1,7 @@
-query AssociationDetail($id: ID!) {
-	node(id: $id) {
-		... on Association {
+mutation UnlockItemEditor($id: ID!) {
+	unlock(input: { id: $id }) {
+		__typename
+		... on Item {
 			id
 			name
 			description
@@ -13,13 +14,22 @@ query AssociationDetail($id: ID!) {
 				firstName
 				lastName
 			}
-			characters {
+			artifacts {
 				edges {
 					node {
 						id
 						name
 					}
 				}
+			}
+			armor {
+				acBonus
+			}
+			equipment {
+				briefDescription
+			}
+			weapon {
+				attackBonus
 			}
 			relatedArtifacts {
 				edges {

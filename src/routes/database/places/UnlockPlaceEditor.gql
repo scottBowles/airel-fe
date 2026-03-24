@@ -1,10 +1,12 @@
-query AssociationDetail($id: ID!) {
-	node(id: $id) {
-		... on Association {
+mutation UnlockPlaceEditor($id: ID!) {
+	unlock(input: { id: $id }) {
+		__typename
+		... on Place {
 			id
 			name
 			description
 			markdownNotes
+			placeType
 			imageIds
 			lockedBySelf
 			lockUser {
@@ -13,7 +15,31 @@ query AssociationDetail($id: ID!) {
 				firstName
 				lastName
 			}
-			characters {
+			parent {
+				id
+				name
+				parent {
+					id
+					name
+					parent {
+						id
+						name
+						parent {
+							id
+							name
+							parent {
+								id
+								name
+								parent {
+									id
+									name
+								}
+							}
+						}
+					}
+				}
+			}
+			children {
 				edges {
 					node {
 						id
