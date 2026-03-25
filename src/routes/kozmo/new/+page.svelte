@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { fromStore } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { graphql } from '$houdini';
 	import { toast } from 'svelte-sonner';
@@ -12,7 +11,6 @@
 		Bot,
 		Loader2,
 	} from 'lucide-svelte';
-	import type { PageData } from './$houdini';
 
 	const getUser = getUserContext();
 	let isStaff = $derived(!!getUser()?.isStaff);
@@ -21,26 +19,22 @@
 		if (!isStaff) goto('/kozmo');
 	});
 
-	let { data }: { data: PageData } = $props();
-	let store = $derived(fromStore(data.ChatSessionDetail).current);
-	let session = $derived(
-		store?.data?.node?.__typename === 'ChatSessionType' ? store.data.node : null,
-	);
-
-	let messages = $state<Array<{ id: string; message: string; response: string; createdAt: Date | string }>>([]);
+	let messages = $state<Array<{ id: string; message: string; response: string; createdAt: string }>>([]);
 	let inputValue = $state('');
 	let sending = $state(false);
 	let messagesEnd = $state<HTMLDivElement | null>(null);
 
-	// Sync messages from query on load
-	$effect(() => {
-		if (session?.messages) {
-			messages = [...session.messages];
+	const startChatMutation = graphql(`
+		mutation StartNewChatSessionWithMessage($input: StartChatSessionInput!) {
+			startChatSession(input: $input) {
+				id
+				title
+			}
 		}
-	});
+	`);
 
 	const sendMessageMutation = graphql(`
-		mutation SendChatMessage($input: SendChatMessageInput!) {
+		mutation SendFirstChatMessage($input: SendChatMessageInput!) {
 			sendChatMessage(input: $input) {
 				message {
 					id
@@ -59,13 +53,12 @@
 	}
 
 	async function sendMessage() {
-		if (!inputValue.trim() || !session || sending) return;
+		if (!inputValue.trim() || sending) return;
 
 		const userMessage = inputValue.trim();
 		inputValue = '';
 		sending = true;
 
-		// Optimistic: show user message immediately
 		const tempId = `temp-${Date.now()}`;
 		messages = [
 			...messages,
@@ -74,27 +67,37 @@
 		await scrollToBottom();
 
 		try {
+			// Create the session first
+			const sessionResult = await startChatMutation.mutate({
+				input: { title: userMessage.slice(0, 80) },
+			});
+			const session = sessionResult.data?.startChatSession;
+			if (!session) {
+				messages = messages.filter((m) => m.id !== tempId);
+				toast.error('Failed to start chat');
+				return;
+			}
+
+			// Send the message
 			const result = await sendMessageMutation.mutate({
-				input: {
-					sessionId: session.id,
-					message: userMessage,
-				},
+				input: { sessionId: session.id, message: userMessage },
 			});
 			const msg = result.data?.sendChatMessage?.message;
 			if (msg) {
-				// Replace temp message with real one
 				messages = messages.map((m) => (m.id === tempId ? msg : m));
 			} else {
-				// Remove temp message on error
 				messages = messages.filter((m) => m.id !== tempId);
 				toast.error('Kozmo failed to respond');
 			}
+
+			// Navigate to the real session URL (replace so back goes to list)
+			await scrollToBottom();
+			goto(`/kozmo/${session.id}`, { replaceState: true });
 		} catch {
 			messages = messages.filter((m) => m.id !== tempId);
 			toast.error('Communication error');
 		} finally {
 			sending = false;
-			await scrollToBottom();
 		}
 	}
 
@@ -107,7 +110,7 @@
 </script>
 
 <svelte:head>
-	<title>{session?.title ?? 'Chat'} — Kozmo — KSS Kontularien</title>
+	<title>New Chat — Kozmo — KSS Kontularien</title>
 </svelte:head>
 
 <div class="flex min-h-0 flex-1 flex-col">
@@ -122,7 +125,7 @@
 		<div class="flex items-center gap-2">
 			<Bot class="h-4 w-4 text-accent-green" />
 			<h1 class="machine-text text-xs text-text-primary uppercase tracking-wider">
-				{session?.title ?? 'Kozmo'}
+				New Session
 			</h1>
 		</div>
 		<div class="ml-auto">
@@ -146,7 +149,6 @@
 			{/if}
 
 			{#each messages as msg}
-				<!-- User message -->
 				<div class="flex items-start gap-3">
 					<div class="flex h-7 w-7 shrink-0 items-center justify-center border border-accent-cyan/20 bg-accent-cyan/5">
 						<User class="h-3.5 w-3.5 text-accent-cyan" />
@@ -157,7 +159,6 @@
 					</div>
 				</div>
 
-				<!-- Kozmo response -->
 				{#if msg.response}
 					<div class="flex items-start gap-3">
 						<div class="flex h-7 w-7 shrink-0 items-center justify-center border border-accent-green/20 bg-accent-green/5">
